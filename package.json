@@ -1,0 +1,33 @@
+{
+	"name"           : "@osmium/regular-job",
+	"version"        : "0.3.0",
+	"license"        : "MIT",
+	"author"         : {
+		"name" : "Vasiliy Isaichkin",
+		"email": "vasiliy@isaichkin.ru"
+	},
+	"main"           : "./dist/index.js",
+	"types"          : "./defs/index.d.ts",
+	"scripts"        : {
+		"compile"       : "tsc",
+		"make_docs"     : "typedoc",
+		"test"          : "mocha -r node_modules/ts-node/register ./tests/index.ts",
+		"build"         : "npm run compile && npm run make_docs",
+		"prepublishOnly": "npm run build"
+	},
+	"dependencies"   : {
+		"@osmium/events": "~0.4.0",
+		"@osmium/tools" : "~0.4.1"
+	},
+	"devDependencies": {
+		"@types/chai"      : "^4.2.19",
+		"@types/mocha"     : "^8.2.2",
+		"@types/node"      : "~14.17.4",
+		"chai"             : "^4.3.4",
+		"mocha"            : "~8.4.0",
+		"ts-node"          : "^10.0.0",
+		"typedoc"          : "^0.21.2",
+		"typedoc-neo-theme": "1.1.1",
+		"typescript"       : "~4.2.4"
+	}
+}
