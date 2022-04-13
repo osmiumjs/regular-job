@@ -1,9 +1,7 @@
-import Timeout = NodeJS.Timeout;
-
 export type Milliseconds = number;
 export type MultipliedTime = number;
 
-export type JobList = { [index: string]: Job }
+export type JobList = Record<string, Job>
 
 export interface JobControl {
 	stop: () => void,
