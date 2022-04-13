@@ -154,6 +154,12 @@ class RegularJob extends Events {
 		const curr = this.jobs[jobId];
 		if (curr) curr.resume = false;
 	}
+
+	stopAll() {
+		oTools.iterateKeys(this.jobs, (jobId: string) => {
+			this.stop(jobId);
+		});
+	}
 }
 
 export {RegularJob, Events};

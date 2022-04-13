@@ -98,6 +98,8 @@ describe('RegularJob::Schedule', function () {
 		await wait(20);
 
 		assert(count.first === 2, `For some reasons job was not stopped, expected 2, got ${count.first}`);
+
+		process.exit();
 	});
 });
 
