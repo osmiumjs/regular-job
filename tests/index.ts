@@ -28,7 +28,7 @@ describe('RegularJob::Schedule', function () {
 	let id: string;
 
 	it('should register new event and repeat it', async function () {
-		id = schedule.add(5, () => {
+		id = await schedule.add(5, () => {
 			if (count.first < 3) count.first++;
 		});
 
@@ -38,7 +38,7 @@ describe('RegularJob::Schedule', function () {
 	});
 
 	it('should register new event and immediatly run it, then repeat', async function () {
-		id = schedule.add(5, () => {
+		id = await schedule.add(5, () => {
 			if (count.second < 4) count.second++;
 		}, true);
 
@@ -49,12 +49,6 @@ describe('RegularJob::Schedule', function () {
 		await wait();
 
 		assert(count.second === 4, `Schedule counting wrong number, expected more than/or 4, got ${count.second}`);
-	});
-
-	it('should return options of repetead job', async function () {
-		const options = schedule.getArgs(id);
-
-		assert(Object.keys(options).length === 4, 'Object returned from getArgs is not correct');
 	});
 });
 
@@ -67,7 +61,7 @@ describe('RegularJob::Schedule', function () {
 	let id: string;
 
 	it('should run scheduled job instantly, and then repeat', async function () {
-		id = schedule.add(100000, () => {count.second++;});
+		id = await schedule.add(100000, () => {count.second++;});
 
 		await schedule.run(id);
 
@@ -75,7 +69,7 @@ describe('RegularJob::Schedule', function () {
 	});
 
 	it('should run scheduled job instantly, and then stop', async function () {
-		id = schedule.add(20, () => {count.second++;});
+		id = await schedule.add(20, () => {count.second++;});
 
 		await schedule.run(id, true);
 
@@ -87,7 +81,7 @@ describe('RegularJob::Schedule', function () {
 	});
 
 	it('should register scheduled work and stop it', async function () {
-		id = schedule.add(10, () => {
+		id = await schedule.add(10, () => {
 			count.first++;
 		}, true);
 

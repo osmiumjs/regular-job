@@ -1,20 +1,8 @@
-import {JobControl, JobList, Milliseconds, MultipliedTime} from './types';
+import {Events} from '@osmium/events';
+import oTools from '@osmium/tools';
 
-const oTools = require('@osmium/tools');
-const {Events} = require('@osmium/events');
-
-class RegularJob extends Events {
-	/**
-	 * @constructor
-	 * @param {Number} durationMultiply
-	 * @param {string} uidPrefix
-	 * @returns {RegularJob}
-	 */
-	static createInstance(durationMultiply: Milliseconds = 1000, uidPrefix: string = 'JOB-') {
-		return new RegularJob(durationMultiply, uidPrefix);
-	}
-
-	events = {
+export class RegularJob extends Events<string> {
+	public eventsList = {
 		ERROR     : 'error',
 		ADD       : 'add',
 		STOP      : 'stop',
@@ -23,22 +11,18 @@ class RegularJob extends Events {
 		LOCKED    : 'locked'
 	};
 
-	/**
-	 * @private
-	 */
-	protected jobs: JobList = <JobList>{};
+	private readonly uidPrefix: string;
+	private readonly durationMultiply: number;
 
-	/**
-	 * @private
-	 * @type {{[string]: boolean}}
-	 */
-	protected lockTable: Record<string, boolean> = {};
+	private readonly jobs: RegularJob.JobList = new Map();
+	private readonly lockTable: Set<string> = new Set();
 
-	/**
-	 * @param {Number} durationMultiply
-	 * @param {string} uidPrefix
-	 */
-	constructor(durationMultiply: Milliseconds = 1000, uidPrefix: string = 'JOB-') {
+	/** @constructor */
+	static createInstance(durationMultiply: RegularJob.Milliseconds = 1, uidPrefix: string = 'JOB-'): RegularJob {
+		return new RegularJob(durationMultiply, uidPrefix);
+	}
+
+	constructor(durationMultiply: RegularJob.Milliseconds = 1, uidPrefix: string = 'JOB-') {
 		super();
 
 		this.uidPrefix = uidPrefix;
@@ -46,10 +30,9 @@ class RegularJob extends Events {
 	}
 
 	private async jobLoop(id: string): Promise<void> {
-		if (!this.jobs[id]) return;
-
 		while (true) {
-			const jobInfo = this.jobs[id];
+			const jobInfo = this.jobs.get(id);
+			if (!jobInfo) return;
 			if (!jobInfo.resume) break;
 
 			await oTools.delay(jobInfo.duration);
@@ -61,105 +44,117 @@ class RegularJob extends Events {
 			if (!jobInfo.resume) break;
 		}
 
-		delete this.jobs[id];
+		this.jobs.delete(id);
 	}
 
-	add(duration: MultipliedTime, cb: Function, andRun: boolean = false, id: boolean | string = false): string {
+	public async add(duration: RegularJob.MultipliedTime, cb: (control: RegularJob.JobControl) => Promise<void> | void, andRun: boolean = false, jobId: string | null = null): Promise<string> {
 		const currDuration = duration * this.durationMultiply;
-		const _id = id || oTools.UID(this.uidPrefix);
+		const id = jobId ?? oTools.UID(this.uidPrefix);
 
-		if (this.jobs[_id]) throw new Error('RegularJob :: duplicated id');
+		if (this.jobs.get(id)) throw new Error('RegularJob :: job already exists :: by id');
 
-		this.jobs[_id] = {
+		const job: RegularJob.Job = {
 			duration: currDuration,
-			last    : 0,
+			last    : null,
 			start   : new Date(),
 			resume  : true,
 			cb
 		};
 
-		this.emit(this.events.ADD, _id, this.jobs[_id], andRun).then();
+		this.jobs.set(id, job);
+
+		this.emit(this.eventsList.ADD, id, job, andRun).then();
 
 		if (andRun) {
-			(async () => {
-				await this.run(_id);
-				await this.jobLoop(_id);
-			})();
-		} else {
-			(async () => this.jobLoop(_id))();
+			await this.run(id);
 		}
 
-		return _id;
+		this.jobLoop(id).then();
+
+		return id;
 	}
 
-	/**
-	 * @private
-	 * @param {string} jobId
-	 */
-	getArgs(jobId: string): JobControl {
-		const curr = this.jobs[jobId];
-		return {
-			stop    : () => this.stop(jobId),
-			id      : jobId,
-			last    : curr.last as any,
-			duration: curr.duration
-		};
-	}
-
-	/**
-	 * @param {string} jobId
-	 * @param {boolean} noRepeat
-	 * @returns {Promise<boolean>}
-	 */
-	async run(jobId: string, noRepeat: boolean = false): Promise<boolean | void> {
-		const curr = this.jobs[jobId];
+	async run(jobId: string, noRepeat: boolean = false): Promise<boolean> {
+		let curr = this.jobs.get(jobId);
 		if (!curr) return false;
 
-		if (this.lockTable[jobId]) {
-			await this.emit(this.events.LOCKED, jobId);
+		if (this.lockTable.has(jobId)) {
+			await this.emit(this.eventsList.LOCKED, jobId);
 			return false;
 		}
 
-		this.lockTable[jobId] = true;
+		this.lockTable.add(jobId);
 
 		let returnState = true;
 
+		let error;
 		try {
-			await this.emit(this.events.RUN_BEFORE, jobId);
+			await this.emit(this.eventsList.RUN_BEFORE, jobId);
 
-			await curr.cb(this.getArgs(jobId));
 
-			await this.emit(this.events.RUN_AFTER, jobId);
+			curr = this.jobs.get(jobId);
+			if (!curr) return false;
+
+			await curr.cb({
+				stop    : () => this.stop(jobId),
+				id      : jobId,
+				last    : curr.last,
+				duration: curr.duration
+			});
+
+			await this.emit(this.eventsList.RUN_AFTER, jobId);
 		} catch (e) {
+			error = e;
 			returnState = false;
-
-			setTimeout(() => this.emit(this.events.ERROR, jobId, e), 1); //for update states below
 		}
 
-		delete this.lockTable[jobId];
+		this.lockTable.delete(jobId);
+
+		curr = this.jobs.get(jobId);
+		if (!curr) return false;
 
 		curr.last = new Date();
 		if (noRepeat) curr.resume = false;
 
+		if (!returnState) this.emit(this.eventsList.ERROR, error, jobId).then();
+
 		return returnState;
 	}
 
-	onError(cb: Function): string {
-		return this.on(this.events.ERROR, async (jobId: string, e: Error) => cb(jobId, e));
+	onError<ErrorType extends Error = Error>(callBack: (error: ErrorType, jobId: string) => Promise<void> | void): void {
+		this.on(this.eventsList.ERROR, callBack);
 	}
 
-	stop(jobId: string) {
-		this.emit(this.events.STOP, jobId).then();
+	stop(jobId: string): void {
+		this.emit(this.eventsList.STOP, jobId).then();
 
-		const curr = this.jobs[jobId];
+		const curr = this.jobs.get(jobId);
 		if (curr) curr.resume = false;
 	}
 
-	stopAll() {
-		oTools.iterateKeys(this.jobs, (jobId: string) => {
-			this.stop(jobId);
-		});
+	stopAll(): void {
+		oTools.iterateKeys(this.jobs, (jobId: string) => this.stop(jobId));
 	}
 }
 
-export {RegularJob, Events};
+export namespace RegularJob {
+	export type Milliseconds = number;
+	export type MultipliedTime = number;
+
+	export type JobList = Map<string, Job>
+
+	export interface JobControl {
+		stop: () => void,
+		id: string,
+		last: Date | null,
+		duration: MultipliedTime
+	}
+
+	export interface Job {
+		duration: MultipliedTime,
+		last: Date | null,
+		start: Date,
+		resume: boolean,
+		cb: Function
+	}
+}
