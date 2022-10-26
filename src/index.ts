@@ -1,5 +1,10 @@
-import {Events} from '@osmium/events';
-import oTools from '@osmium/tools';
+import {Events}          from '@osmium/events';
+import {iterateKeysSync} from '@osmium/iterate';
+import {CryptTools}      from '@osmium/crypt';
+
+async function delay(t: number) {
+	return new Promise((resolve) => setTimeout(resolve, t));
+}
 
 export class RegularJob extends Events<string> {
 	public eventsList = {
@@ -35,7 +40,7 @@ export class RegularJob extends Events<string> {
 			if (!jobInfo) return;
 			if (!jobInfo.resume) break;
 
-			await oTools.delay(jobInfo.duration);
+			await delay(jobInfo.duration);
 
 			if (!jobInfo.resume) break;
 
@@ -49,7 +54,7 @@ export class RegularJob extends Events<string> {
 
 	public async add(duration: RegularJob.MultipliedTime, cb: (control: RegularJob.JobControl) => Promise<void> | void, andRun: boolean = false, jobId: string | null = null): Promise<string> {
 		const currDuration = duration * this.durationMultiply;
-		const id = jobId ?? oTools.UID(this.uidPrefix);
+		const id = jobId ?? CryptTools.UID(this.uidPrefix);
 
 		if (this.jobs.get(id)) throw new Error('RegularJob :: job already exists :: by id');
 
@@ -133,7 +138,7 @@ export class RegularJob extends Events<string> {
 	}
 
 	stopAll(): void {
-		oTools.iterateKeys(this.jobs, (jobId: string) => this.stop(jobId));
+		iterateKeysSync(this.jobs, (jobId: string) => this.stop(jobId));
 	}
 }
 

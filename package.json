@@ -1,6 +1,6 @@
 {
 	"name"           : "@osmium/regular-job",
-	"version"        : "0.5.0",
+	"version"        : "0.6.0",
 	"license"        : "MIT",
 	"author"         : {
 		"name" : "Vasiliy Isaichkin",
@@ -10,25 +10,24 @@
 	"types"          : "./defs/index.d.ts",
 	"scripts"        : {
 		"compile"       : "tsc",
-		"make_docs"     : "typedoc",
 		"test"          : "mocha -r node_modules/ts-node/register ./tests/index.ts",
 		"clean"         : "rimraf dist defs",
-		"build"         : "npm run clean && npm run compile && npm run make_docs && npm run test",
-		"prepublishOnly": "npm run build"
+		"build"         : "yarn run clean && yarn run compile && yarn run test",
+		"prepublishOnly": "yarn run build"
 	},
 	"dependencies"   : {
-		"@osmium/events": "~0.6.6",
-		"@osmium/tools" : "~0.6.4"
+		"@osmium/crypt"  : "~0.7.1",
+		"@osmium/events" : "~0.9.3",
+		"@osmium/iterate": "~0.1.1"
 	},
 	"devDependencies": {
-		"@types/chai" : "^4.3.1",
-		"@types/mocha": "^9.1.1",
-		"@types/node" : "~16.11.33",
-		"rimraf"      : "~3.0.2",
+		"@types/chai" : "^4.3.3",
+		"@types/mocha": "^10.0.0",
+		"@types/node" : "~18.11.5",
 		"chai"        : "^4.3.6",
-		"mocha"       : "~10.0.0",
-		"ts-node"     : "^10.7.0",
-		"typedoc"     : "^0.22.15",
-		"typescript"  : "~4.6.4"
+		"mocha"       : "~10.1.0",
+		"rimraf"      : "~3.0.2",
+		"ts-node"     : "^10.9.1",
+		"typescript"  : "~4.8.4"
 	}
 }
